@@ -19,8 +19,8 @@ type RouteProps = RouteProp<RootStackParamList, "ReviewMistakes">;
 interface MistakeItem {
   questionId: string;
   questionText: string;
-  selectedAnswer: string;
-  correctAnswer: string;
+  selectedAnswers: string[];
+  correctAnswers: string[];
 }
 
 export default function ReviewMistakesScreen() {
@@ -40,15 +40,19 @@ export default function ReviewMistakesScreen() {
       .filter((a) => !a.isCorrect)
       .map((a) => {
         const question = quiz.questions.find((q) => q.id === a.questionId);
-        const selectedAnswer = question?.answers.find(
-          (ans) => ans.id === a.selectedAnswerId
-        );
-        const correctAnswer = question?.answers.find((ans) => ans.isCorrect);
+        const selectedAnswers =
+          question?.answers
+            .filter((ans) => a.selectedAnswerIds.includes(ans.id))
+            .map((ans) => ans.text) ?? [];
+        const correctAnswers =
+          question?.answers
+            .filter((ans) => ans.isCorrect)
+            .map((ans) => ans.text) ?? [];
         return {
           questionId: a.questionId,
           questionText: question?.text ?? "Unknown question",
-          selectedAnswer: selectedAnswer?.text ?? "Unknown",
-          correctAnswer: correctAnswer?.text ?? "Unknown",
+          selectedAnswers,
+          correctAnswers,
         };
       });
   }, [run, quiz]);
@@ -118,19 +122,31 @@ export default function ReviewMistakesScreen() {
             <ThemedText type="small" style={{ color: theme.error }}>
               Your answer
             </ThemedText>
-            <ThemedText>{item.selectedAnswer}</ThemedText>
+            {item.selectedAnswers.length > 0 ? (
+              item.selectedAnswers.map((ans, i) => (
+                <ThemedText key={i}>{ans}</ThemedText>
+              ))
+            ) : (
+              <ThemedText style={{ fontStyle: "italic" }}>
+                No answer selected
+              </ThemedText>
+            )}
           </View>
         </View>
 
         <View style={styles.answerRow}>
-          <View style={[styles.answerIcon, { backgroundColor: theme.success + "1A" }]}>
+          <View
+            style={[styles.answerIcon, { backgroundColor: theme.success + "1A" }]}
+          >
             <Feather name="check" size={14} color={theme.success} />
           </View>
           <View style={styles.answerContent}>
             <ThemedText type="small" style={{ color: theme.success }}>
               Correct answer
             </ThemedText>
-            <ThemedText>{item.correctAnswer}</ThemedText>
+            {item.correctAnswers.map((ans, i) => (
+              <ThemedText key={i}>{ans}</ThemedText>
+            ))}
           </View>
         </View>
       </View>

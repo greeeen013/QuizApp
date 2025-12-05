@@ -24,7 +24,7 @@ export interface Quiz {
 
 export interface QuizRunAnswer {
   questionId: string;
-  selectedAnswerId: string;
+  selectedAnswerIds: string[];
   isCorrect: boolean;
 }
 
@@ -255,7 +255,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayStr = yesterday.toISOString().split("T")[0];
-      
+
       if (streak.lastCompletedDate !== today && streak.lastCompletedDate !== yesterdayStr) {
         setStreak({ currentStreak: 0, lastCompletedDate: null });
       }

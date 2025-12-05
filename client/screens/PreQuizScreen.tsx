@@ -43,11 +43,13 @@ export default function PreQuizScreen() {
   }, [navigation, testId, shuffle]);
 
   const handleEditQuiz = useCallback(() => {
-    navigation.goBack();
-    setTimeout(() => {
-      navigation.navigate("Main");
-      navigation.navigate("TestEditor" as any, { testId });
-    }, 100);
+    navigation.navigate("Main", {
+      screen: "TestsTab",
+      params: {
+        screen: "TestEditor",
+        params: { testId },
+      },
+    } as any);
   }, [navigation, testId]);
 
   useLayoutEffect(() => {

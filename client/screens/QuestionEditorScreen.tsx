@@ -127,7 +127,9 @@ export default function QuestionEditorScreen() {
   const handleSetCorrect = useCallback((answerId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setAnswers((prev) =>
-      prev.map((a) => ({ ...a, isCorrect: a.id === answerId }))
+      prev.map((a) =>
+        a.id === answerId ? { ...a, isCorrect: !a.isCorrect } : a
+      )
     );
   }, []);
 

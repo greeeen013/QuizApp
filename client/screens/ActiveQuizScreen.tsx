@@ -13,6 +13,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { Button } from "@/components/Button";
 import { AnswerButton } from "@/components/AnswerButton";
 import { useStore, Question, QuizRunAnswer } from "@/lib/store";
 import { useTheme } from "@/hooks/useTheme";
@@ -59,8 +60,8 @@ export default function ActiveQuizScreen() {
   const isMiniRun = questionIds && questionIds.length > 0;
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedAnswerId, setSelectedAnswerId] = useState<string | null>(null);
-  const [isAnswered, setIsAnswered] = useState(false);
+  const [selectedAnswerIds, setSelectedAnswerIds] = useState<string[]>([]);
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const [answers, setAnswers] = useState<QuizRunAnswer[]>([]);
 
   const currentQuestion = questions[currentIndex];
@@ -99,80 +100,87 @@ export default function ActiveQuizScreen() {
 
   const handleAnswerSelect = useCallback(
     (answerId: string) => {
-      if (isAnswered || !currentQuestion) return;
-
-      setSelectedAnswerId(answerId);
-      setIsAnswered(true);
-
-      const answer = currentQuestion.answers.find((a) => a.id === answerId);
-      const isCorrect = answer?.isCorrect ?? false;
-
-      if (isCorrect) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } else {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      }
-
-      setAnswers((prev) => [
-        ...prev,
-        {
-          questionId: currentQuestion.id,
-          selectedAnswerId: answerId,
-          isCorrect,
-        },
-      ]);
-
-      setTimeout(() => {
-        if (currentIndex < questions.length - 1) {
-          setCurrentIndex((prev) => prev + 1);
-          setSelectedAnswerId(null);
-          setIsAnswered(false);
-        } else {
-          const updatedAnswers = [
-            ...answers,
-            {
-              questionId: currentQuestion.id,
-              selectedAnswerId: answerId,
-              isCorrect,
-            },
-          ];
-          const correctCount = updatedAnswers.filter((a) => a.isCorrect).length;
-          const wrongCount = updatedAnswers.length - correctCount;
-          const scorePercentage = (correctCount / updatedAnswers.length) * 100;
-
-          if (!isMiniRun) {
-            const run = addRun({
-              quizId: testId,
-              quizTitle: quiz?.title ?? "",
-              scorePercentage,
-              totalQuestions: updatedAnswers.length,
-              correctCount,
-              wrongCount,
-              answers: updatedAnswers,
-            });
-            updateStreak();
-            navigation.replace("Results", { runId: run.id });
-          } else {
-            const tempRunId = `temp_${Date.now()}`;
-            navigation.replace("Results", { runId: tempRunId, isMiniRun: true });
-          }
+      if (isSubmitted) return;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setSelectedAnswerIds((prev) => {
+        if (prev.includes(answerId)) {
+          return prev.filter((id) => id !== answerId);
         }
-      }, 800);
+        return [...prev, answerId];
+      });
     },
-    [
-      isAnswered,
-      currentQuestion,
-      currentIndex,
-      questions.length,
-      answers,
-      isMiniRun,
-      testId,
-      quiz?.title,
-      addRun,
-      updateStreak,
-      navigation,
-    ]
+    [isSubmitted]
   );
+
+  const handleSubmit = useCallback(() => {
+    if (selectedAnswerIds.length === 0 || !currentQuestion) return;
+
+    setIsSubmitted(true);
+
+    const correctIds = currentQuestion.answers
+      .filter((a) => a.isCorrect)
+      .map((a) => a.id);
+
+    const isCorrect =
+      selectedAnswerIds.length === correctIds.length &&
+      selectedAnswerIds.every((id) => correctIds.includes(id));
+
+    if (isCorrect) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+
+    const newAnswer: QuizRunAnswer = {
+      questionId: currentQuestion.id,
+      selectedAnswerIds,
+      isCorrect,
+    };
+
+    setAnswers((prev) => [...prev, newAnswer]);
+
+    setTimeout(() => {
+      if (currentIndex < questions.length - 1) {
+        setCurrentIndex((prev) => prev + 1);
+        setSelectedAnswerIds([]);
+        setIsSubmitted(false);
+      } else {
+        const updatedAnswers = [...answers, newAnswer];
+        const correctCount = updatedAnswers.filter((a) => a.isCorrect).length;
+        const wrongCount = updatedAnswers.length - correctCount;
+        const scorePercentage = (correctCount / updatedAnswers.length) * 100;
+
+        if (!isMiniRun) {
+          const run = addRun({
+            quizId: testId,
+            quizTitle: quiz?.title ?? "",
+            scorePercentage,
+            totalQuestions: updatedAnswers.length,
+            correctCount,
+            wrongCount,
+            answers: updatedAnswers,
+          });
+          updateStreak();
+          navigation.replace("Results", { runId: run.id });
+        } else {
+          const tempRunId = `temp_${Date.now()}`;
+          navigation.replace("Results", { runId: tempRunId, isMiniRun: true });
+        }
+      }
+    }, 1500);
+  }, [
+    selectedAnswerIds,
+    currentQuestion,
+    currentIndex,
+    questions.length,
+    answers,
+    isMiniRun,
+    testId,
+    quiz?.title,
+    addRun,
+    updateStreak,
+    navigation,
+  ]);
 
   if (!quiz || questions.length === 0) {
     return (
@@ -185,12 +193,12 @@ export default function ActiveQuizScreen() {
   }
 
   const getAnswerState = (answerId: string) => {
-    if (!isAnswered) {
-      return selectedAnswerId === answerId ? "selected" : "default";
+    if (!isSubmitted) {
+      return selectedAnswerIds.includes(answerId) ? "selected" : "default";
     }
     const answer = currentQuestion?.answers.find((a) => a.id === answerId);
     if (answer?.isCorrect) return "correct";
-    if (answerId === selectedAnswerId) return "wrong";
+    if (selectedAnswerIds.includes(answerId)) return "wrong";
     return "default";
   };
 
@@ -244,13 +252,25 @@ export default function ActiveQuizScreen() {
               text={answer.text}
               state={getAnswerState(answer.id)}
               onPress={() => handleAnswerSelect(answer.id)}
-              disabled={isAnswered}
+              disabled={isSubmitted}
             />
           ))}
         </View>
       </View>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
+      <View
+        style={[
+          styles.footer,
+          { paddingBottom: insets.bottom + Spacing.lg },
+        ]}
+      >
+        {!isSubmitted && selectedAnswerIds.length > 0 && (
+          <Animated.View entering={FadeIn.duration(200)} style={styles.submitContainer}>
+            <Button onPress={handleSubmit} style={styles.submitButton}>
+              Submit Answer
+            </Button>
+          </Animated.View>
+        )}
         {isMiniRun ? (
           <ThemedText type="small" style={{ color: theme.textSecondary }}>
             Practice mode - results won't be saved
@@ -313,5 +333,12 @@ const styles = StyleSheet.create({
   footer: {
     alignItems: "center",
     paddingHorizontal: Spacing.lg,
+  },
+  submitContainer: {
+    width: "100%",
+    marginBottom: Spacing.md,
+  },
+  submitButton: {
+    width: "100%",
   },
 });

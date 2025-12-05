@@ -28,6 +28,75 @@ type NavigationProp = NativeStackNavigationProp<
 >;
 type RouteProps = RouteProp<TestsStackParamList, "TestEditor">;
 
+interface TestEditorHeaderProps {
+  title: string;
+  setTitle: (text: string) => void;
+  description: string;
+  setDescription: (text: string) => void;
+  questionCount: number;
+}
+
+const TestEditorHeader = React.memo(
+  ({
+    title,
+    setTitle,
+    description,
+    setDescription,
+    questionCount,
+  }: TestEditorHeaderProps) => {
+    const { theme } = useTheme();
+
+    return (
+      <View style={styles.form}>
+        <View style={styles.inputGroup}>
+          <ThemedText type="small" style={styles.label}>
+            Title *
+          </ThemedText>
+          <TextInput
+            value={title}
+            onChangeText={setTitle}
+            placeholder="Enter test title"
+            placeholderTextColor={theme.textSecondary}
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.backgroundDefault,
+                color: theme.text,
+                borderColor: theme.border,
+              },
+            ]}
+          />
+        </View>
+        <View style={styles.inputGroup}>
+          <ThemedText type="small" style={styles.label}>
+            Description
+          </ThemedText>
+          <TextInput
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Enter description (optional)"
+            placeholderTextColor={theme.textSecondary}
+            multiline
+            numberOfLines={3}
+            style={[
+              styles.input,
+              styles.textArea,
+              {
+                backgroundColor: theme.backgroundDefault,
+                color: theme.text,
+                borderColor: theme.border,
+              },
+            ]}
+          />
+        </View>
+        <View style={styles.questionsHeader}>
+          <ThemedText type="h4">Questions ({questionCount})</ThemedText>
+        </View>
+      </View>
+    );
+  }
+);
+
 export default function TestEditorScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProps>();
@@ -275,61 +344,20 @@ export default function TestEditorScreen() {
     ]
   );
 
-  const renderHeader = () => (
-    <View style={styles.form}>
-      <View style={styles.inputGroup}>
-        <ThemedText type="small" style={styles.label}>
-          Title *
-        </ThemedText>
-        <TextInput
-          value={title}
-          onChangeText={(text) => {
-            setTitle(text);
-            setHasChanges(true);
-          }}
-          placeholder="Enter test title"
-          placeholderTextColor={theme.textSecondary}
-          style={[
-            styles.input,
-            {
-              backgroundColor: theme.backgroundDefault,
-              color: theme.text,
-              borderColor: theme.border,
-            },
-          ]}
-        />
-      </View>
-      <View style={styles.inputGroup}>
-        <ThemedText type="small" style={styles.label}>
-          Description
-        </ThemedText>
-        <TextInput
-          value={description}
-          onChangeText={(text) => {
-            setDescription(text);
-            setHasChanges(true);
-          }}
-          placeholder="Enter description (optional)"
-          placeholderTextColor={theme.textSecondary}
-          multiline
-          numberOfLines={3}
-          style={[
-            styles.input,
-            styles.textArea,
-            {
-              backgroundColor: theme.backgroundDefault,
-              color: theme.text,
-              borderColor: theme.border,
-            },
-          ]}
-        />
-      </View>
-      <View style={styles.questionsHeader}>
-        <ThemedText type="h4">
-          Questions ({sortedQuestions.length})
-        </ThemedText>
-      </View>
-    </View>
+  const header = (
+    <TestEditorHeader
+      title={title}
+      setTitle={(text) => {
+        setTitle(text);
+        setHasChanges(true);
+      }}
+      description={description}
+      setDescription={(text) => {
+        setDescription(text);
+        setHasChanges(true);
+      }}
+      questionCount={sortedQuestions.length}
+    />
   );
 
   const renderFooter = () => (
@@ -346,7 +374,7 @@ export default function TestEditorScreen() {
         data={sortedQuestions}
         keyExtractor={(item) => item.id}
         renderItem={renderQuestion}
-        ListHeaderComponent={renderHeader}
+        ListHeaderComponent={header}
         ListFooterComponent={renderFooter}
         contentContainerStyle={[
           styles.content,

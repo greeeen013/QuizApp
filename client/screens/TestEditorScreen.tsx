@@ -102,7 +102,7 @@ export default function TestEditorScreen() {
   const route = useRoute<RouteProps>();
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const { getQuiz, addQuiz, updateQuiz, deleteQuestion, reorderQuestions } =
+  const { getQuiz, addQuiz, updateQuiz, deleteQuestion, reorderQuestions, settings } =
     useStore();
 
   const testId = route.params?.testId;
@@ -129,7 +129,9 @@ export default function TestEditorScreen() {
   const handleSave = useCallback(() => {
     if (!isValid) return;
 
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (settings.vibrationEnabled) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
 
     if (currentQuizId && quiz) {
       updateQuiz(currentQuizId, {
@@ -226,9 +228,11 @@ export default function TestEditorScreen() {
             text: "Delete",
             style: "destructive",
             onPress: () => {
-              Haptics.notificationAsync(
-                Haptics.NotificationFeedbackType.Warning
-              );
+              if (settings.vibrationEnabled) {
+                Haptics.notificationAsync(
+                  Haptics.NotificationFeedbackType.Warning
+                );
+              }
               deleteQuestion(currentQuizId, questionId);
             },
           },
@@ -244,7 +248,9 @@ export default function TestEditorScreen() {
       const toIndex = direction === "up" ? fromIndex - 1 : fromIndex + 1;
       if (toIndex < 0 || toIndex >= sortedQuestions.length) return;
 
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (settings.vibrationEnabled) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
       const newOrder = [...sortedQuestions];
       const [moved] = newOrder.splice(fromIndex, 1);
       newOrder.splice(toIndex, 0, moved);
@@ -293,6 +299,7 @@ export default function TestEditorScreen() {
         <QuestionCard
           question={item}
           index={index}
+          imageCount={item.images?.length}
           onPress={() => handleEditQuestion(item.id)}
           onDelete={() => handleDeleteQuestion(item.id)}
           dragHandle={

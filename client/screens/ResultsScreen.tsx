@@ -23,7 +23,7 @@ export default function ResultsScreen() {
   const route = useRoute<RouteProps>();
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const { getRun, getQuiz, runs } = useStore();
+  const { getRun, getQuiz, runs, settings } = useStore();
 
   const { runId, isMiniRun } = route.params;
   const run = getRun(runId);
@@ -55,7 +55,7 @@ export default function ResultsScreen() {
     if (!lastRun) return;
     const quiz = getQuiz(lastRun.quizId);
     if (!quiz) return;
-    
+
     navigation.replace("ActiveQuiz", {
       testId: lastRun.quizId,
       shuffle: false,
@@ -64,7 +64,9 @@ export default function ResultsScreen() {
   }, [lastRun, wrongAnswers, navigation, getQuiz]);
 
   const handleDone = useCallback(() => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (settings.vibrationEnabled) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
     handleClose();
   }, [handleClose]);
 

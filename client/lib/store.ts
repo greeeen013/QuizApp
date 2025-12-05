@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export interface Answer {
   id: string;
@@ -11,6 +12,7 @@ export interface Question {
   text: string;
   orderIndex: number;
   answers: Answer[];
+  images?: string[];
 }
 
 export interface Quiz {
@@ -44,6 +46,7 @@ export interface Settings {
   defaultShuffle: boolean;
   displayName: string;
   avatarPreset: number;
+  vibrationEnabled: boolean;
 }
 
 export interface StreakData {
@@ -72,7 +75,10 @@ interface StoreContextValue extends StoreState {
   getRunsByQuiz: (quizId: string) => QuizRun[];
   updateSettings: (updates: Partial<Settings>) => void;
   updateStreak: () => void;
+  isInitialized: boolean;
 }
+
+const STORAGE_KEY = "@quiz_app_data_v1";
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
@@ -80,6 +86,7 @@ const defaultSettings: Settings = {
   defaultShuffle: false,
   displayName: "",
   avatarPreset: 0,
+  vibrationEnabled: true,
 };
 
 const defaultStreak: StreakData = {
@@ -94,6 +101,71 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [runs, setRuns] = useState<QuizRun[]>([]);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [streak, setStreak] = useState<StreakData>(defaultStreak);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Load data on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const jsonValue = await AsyncStorage.getItem(STORAGE_KEY);
+        if (jsonValue != null) {
+          const data = JSON.parse(jsonValue);
+          // Parse dates back from strings
+          if (data.quizzes) {
+            setQuizzes(
+              data.quizzes.map((q: any) => ({
+                ...q,
+                createdAt: new Date(q.createdAt),
+                updatedAt: new Date(q.updatedAt),
+              }))
+            );
+          }
+          if (data.runs) {
+            setRuns(
+              data.runs.map((r: any) => ({
+                ...r,
+                timestamp: new Date(r.timestamp),
+              }))
+            );
+          }
+          if (data.settings) {
+            setSettings({ ...defaultSettings, ...data.settings });
+          }
+          if (data.streak) {
+            setStreak(data.streak);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load data", e);
+      } finally {
+        setIsInitialized(true);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  // Save data on changes
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    const saveData = async () => {
+      try {
+        const data = {
+          quizzes,
+          runs,
+          settings,
+          streak,
+        };
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      } catch (e) {
+        console.error("Failed to save data", e);
+      }
+    };
+
+    const timeoutId = setTimeout(saveData, 500); // Debounce save
+    return () => clearTimeout(timeoutId);
+  }, [quizzes, runs, settings, streak, isInitialized]);
 
   const addQuiz = useCallback((quiz: Omit<Quiz, "id" | "createdAt" | "updatedAt">) => {
     const newQuiz: Quiz = {
@@ -280,6 +352,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     getRunsByQuiz,
     updateSettings,
     updateStreak,
+    isInitialized,
   };
 
   return React.createElement(StoreContext.Provider, { value }, children);

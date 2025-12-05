@@ -1,5 +1,14 @@
 import React, { useState, useCallback, useMemo, useEffect } from "react";
-import { View, StyleSheet, Pressable, Alert, BackHandler } from "react-native";
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  Alert,
+  Image,
+  Dimensions,
+  BackHandler,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -37,7 +46,7 @@ export default function ActiveQuizScreen() {
   const route = useRoute<RouteProps>();
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const { getQuiz, addRun, updateStreak } = useStore();
+  const { getQuiz, addRun, updateStreak, settings } = useStore();
 
   const { testId, shuffle, questionIds } = route.params;
   const quiz = getQuiz(testId);
@@ -101,7 +110,9 @@ export default function ActiveQuizScreen() {
   const handleAnswerSelect = useCallback(
     (answerId: string) => {
       if (isSubmitted) return;
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (settings.vibrationEnabled) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
       setSelectedAnswerIds((prev) => {
         if (prev.includes(answerId)) {
           return prev.filter((id) => id !== answerId);
@@ -126,9 +137,13 @@ export default function ActiveQuizScreen() {
       selectedAnswerIds.every((id) => correctIds.includes(id));
 
     if (isCorrect) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (settings.vibrationEnabled) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
     } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      if (settings.vibrationEnabled) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
     }
 
     const newAnswer: QuizRunAnswer = {
@@ -240,9 +255,31 @@ export default function ActiveQuizScreen() {
           entering={FadeIn.duration(300)}
           style={styles.questionContainer}
         >
-          <ThemedText type="h3" style={styles.questionText}>
-            {currentQuestion.text}
-          </ThemedText>
+          <View style={styles.questionCard}>
+            {currentQuestion.images && currentQuestion.images.length > 0 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.imagesContainer}
+              >
+                {currentQuestion.images.map((img, index) => (
+                  <Image
+                    key={index}
+                    source={{
+                      uri: img.startsWith("http")
+                        ? img
+                        : `data:image/png;base64,${img}`,
+                    }}
+                    style={styles.questionImage}
+                    resizeMode="contain"
+                  />
+                ))}
+              </ScrollView>
+            )}
+            <ThemedText type="h3" style={styles.questionText}>
+              {currentQuestion.text}
+            </ThemedText>
+          </View>
         </Animated.View>
 
         <View style={styles.answersContainer}>
@@ -323,6 +360,19 @@ const styles = StyleSheet.create({
   },
   questionContainer: {
     marginBottom: Spacing["3xl"],
+  },
+  questionCard: {
+    marginBottom: Spacing.xl,
+  },
+  imagesContainer: {
+    marginBottom: Spacing.lg,
+  },
+  questionImage: {
+    width: Dimensions.get("window").width - Spacing.lg * 4,
+    height: 200,
+    borderRadius: BorderRadius.md,
+    marginRight: Spacing.md,
+    backgroundColor: "#00000010",
   },
   questionText: {
     textAlign: "center",

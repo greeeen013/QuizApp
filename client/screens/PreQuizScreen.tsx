@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useLayoutEffect } from "react";
-import { View, StyleSheet, ScrollView } from "react-native";
+import { View, StyleSheet, ScrollView, Share, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -35,12 +35,43 @@ export default function PreQuizScreen() {
   }, [navigation]);
 
   const handleStartQuiz = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (settings.vibrationEnabled) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
     navigation.replace("ActiveQuiz", {
       testId,
       shuffle,
     });
   }, [navigation, testId, shuffle]);
+
+  const handleShareQuiz = useCallback(async () => {
+    if (!quiz) return;
+
+    try {
+      // Create a clean copy of the quiz without IDs and timestamps
+      const quizToShare = {
+        title: quiz.title,
+        description: quiz.description,
+        questions: quiz.questions.map((q) => ({
+          text: q.text,
+          orderIndex: q.orderIndex,
+          answers: q.answers.map((a) => ({
+            text: a.text,
+            isCorrect: a.isCorrect,
+          })),
+        })),
+      };
+
+      const jsonString = JSON.stringify(quizToShare);
+
+      await Share.share({
+        message: jsonString,
+        title: `Share Quiz: ${quiz.title}`,
+      });
+    } catch (error) {
+      Alert.alert("Error", "Failed to share quiz");
+    }
+  }, [quiz]);
 
   const handleEditQuiz = useCallback(() => {
     navigation.navigate("Main", {
@@ -191,6 +222,19 @@ export default function PreQuizScreen() {
             ]}
           >
             <ThemedText style={{ fontWeight: "600" }}>Edit Quiz</ThemedText>
+          </Button>
+          <Button
+            onPress={handleShareQuiz}
+            style={[
+              styles.editButton,
+              {
+                backgroundColor: "transparent",
+                borderWidth: 1,
+                borderColor: theme.border,
+              },
+            ]}
+          >
+            <ThemedText style={{ fontWeight: "600" }}>Share Quiz</ThemedText>
           </Button>
         </View>
       </ScrollView>

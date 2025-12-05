@@ -2,7 +2,7 @@
   "expo": {
     "name": "Quiz Maker",
     "slug": "quiz-maker",
-    "version": "1.0.0",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "quizmaker",
@@ -42,6 +42,11 @@
     ],
     "experiments": {
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "eef6c809-01f8-4e29-836c-d5ef565ef6cb"
+      }
     }
   }
 }

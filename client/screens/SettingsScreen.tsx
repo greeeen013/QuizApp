@@ -46,6 +46,13 @@ export default function SettingsScreen() {
     [updateSettings]
   );
 
+  const handleVibrationToggle = useCallback(
+    (value: boolean) => {
+      updateSettings({ vibrationEnabled: value });
+    },
+    [updateSettings]
+  );
+
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
@@ -141,6 +148,17 @@ export default function SettingsScreen() {
                 <ToggleSwitch
                   value={settings.defaultShuffle}
                   onValueChange={handleShuffleToggle}
+                />
+              }
+            />
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            <SettingsRow
+              label="Vibration"
+              description="Enable haptic feedback"
+              rightElement={
+                <ToggleSwitch
+                  value={settings.vibrationEnabled}
+                  onValueChange={handleVibrationToggle}
                 />
               }
             />

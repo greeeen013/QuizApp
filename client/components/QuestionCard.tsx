@@ -18,6 +18,7 @@ interface QuestionCardProps {
   onPress: () => void;
   onDelete: () => void;
   dragHandle?: React.ReactNode;
+  imageCount?: number;
 }
 
 const springConfig: WithSpringConfig = {
@@ -36,6 +37,7 @@ export function QuestionCard({
   onPress,
   onDelete,
   dragHandle,
+  imageCount = 0,
 }: QuestionCardProps) {
   const { theme } = useTheme();
   const scale = useSharedValue(1);
@@ -102,6 +104,14 @@ export function QuestionCard({
               </ThemedText>
             </View>
           )}
+          {imageCount > 0 && (
+            <View style={styles.badge}>
+              <Feather name="image" size={12} color={theme.textSecondary} />
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                {imageCount}
+              </ThemedText>
+            </View>
+          )}
         </View>
       </View>
       <Pressable
@@ -151,6 +161,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
+  },
+  badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#00000010",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   deleteButton: {
     padding: Spacing.sm,

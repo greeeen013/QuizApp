@@ -13,6 +13,7 @@ import { StreakBadge } from "@/components/StreakBadge";
 import { FAB } from "@/components/FAB";
 import { TestCard } from "@/components/TestCard";
 import { EmptyState } from "@/components/EmptyState";
+import { ImportQuizModal } from "@/components/ImportQuizModal";
 import { useStore, Quiz } from "@/lib/store";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing } from "@/constants/theme";
@@ -28,7 +29,8 @@ export default function TestsLibraryScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
-  const { quizzes, streak, deleteQuiz } = useStore();
+  const { quizzes, streak, deleteQuiz, addQuiz } = useStore();
+  const [isImportModalVisible, setIsImportModalVisible] = React.useState(false);
 
   const sortedQuizzes = [...quizzes].sort(
     (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
@@ -86,6 +88,22 @@ export default function TestsLibraryScreen() {
     navigation.navigate("Settings");
   }, [navigation]);
 
+  const handleImportPress = useCallback(() => {
+    setIsImportModalVisible(true);
+  }, []);
+
+  const handleImportQuiz = useCallback(
+    (quizData: any) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      addQuiz({
+        title: quizData.title,
+        description: quizData.description || "",
+        questions: quizData.questions || [],
+      });
+    },
+    [addQuiz]
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: Quiz }) => (
       <TestCard
@@ -111,6 +129,13 @@ export default function TestsLibraryScreen() {
         <HeaderTitle title="My Tests" />
         <View style={styles.headerRight}>
           <StreakBadge count={streak.currentStreak} />
+          <Pressable
+            onPress={handleImportPress}
+            hitSlop={8}
+            style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+          >
+            <Feather name="download" size={22} color={theme.text} />
+          </Pressable>
           <Pressable
             onPress={handleSettingsPress}
             hitSlop={8}
@@ -160,6 +185,11 @@ export default function TestsLibraryScreen() {
           bottom: tabBarHeight + Spacing.xl,
           right: Spacing.lg,
         }}
+      />
+      <ImportQuizModal
+        visible={isImportModalVisible}
+        onClose={() => setIsImportModalVisible(false)}
+        onImport={handleImportQuiz}
       />
     </ThemedView>
   );

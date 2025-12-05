@@ -1,5 +1,5 @@
 import React, { useMemo, useLayoutEffect, useCallback } from "react";
-import { View, StyleSheet, FlatList } from "react-native";
+import { View, StyleSheet, FlatList, Image, Dimensions, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -19,6 +19,7 @@ type RouteProps = RouteProp<RootStackParamList, "ReviewMistakes">;
 interface MistakeItem {
   questionId: string;
   questionText: string;
+  questionImages?: string[];
   selectedAnswers: string[];
   correctAnswers: string[];
 }
@@ -51,6 +52,7 @@ export default function ReviewMistakesScreen() {
         return {
           questionId: a.questionId,
           questionText: question?.text ?? "Unknown question",
+          questionImages: question?.images,
           selectedAnswers,
           correctAnswers,
         };
@@ -108,7 +110,27 @@ export default function ReviewMistakesScreen() {
             {index + 1}
           </ThemedText>
         </View>
-        <ThemedText style={styles.questionText} numberOfLines={3}>
+        {item.questionImages && item.questionImages.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.imagesContainer}
+          >
+            {item.questionImages.map((img, imgIndex) => (
+              <Image
+                key={imgIndex}
+                source={{
+                  uri: img.startsWith("http")
+                    ? img
+                    : `data:image/png;base64,${img}`,
+                }}
+                style={styles.questionImage}
+                resizeMode="contain"
+              />
+            ))}
+          </ScrollView>
+        )}
+        <ThemedText type="h4" style={styles.questionText}>
           {item.questionText}
         </ThemedText>
       </View>
@@ -209,8 +231,19 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   mistakeCard: {
-    borderRadius: BorderRadius.sm,
     padding: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.lg,
+  },
+  imagesContainer: {
+    marginBottom: Spacing.md,
+  },
+  questionImage: {
+    width: Dimensions.get("window").width - Spacing.lg * 6,
+    height: 150,
+    borderRadius: BorderRadius.sm,
+    marginRight: Spacing.md,
+    backgroundColor: "#00000010",
   },
   questionHeader: {
     flexDirection: "row",

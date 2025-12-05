@@ -1,0 +1,68 @@
+Act as a Senior Android Developer. I need you to generate a complete, functional code structure for a native Android application using **Kotlin** and **Jetpack Compose**. The app is a minimalist "Quiz/Test Maker".
+
+**Architecture:** MVVM (Model-View-ViewModel)
+**Local Storage:** Room Database
+**UI:** Jetpack Compose (Material Design 3)
+
+### Core Concept
+The app allows users to create their own custom tests (quizzes), run them, track their history, and maintain a daily streak.
+
+### Data Models & Database
+1.  **Quiz:** ID, title, description, creationDate.
+2.  **Question:** ID, quizId, questionText, **orderIndex (Int)**.
+3.  **Answer:** ID, questionId, answerText, isCorrect (Boolean).
+4.  **QuizRun (History):** ID, quizId, timestamp, scorePercentage, totalQuestions, correctCount, wrongCount.
+
+### Key Features & Requirements
+
+**1. Main Navigation (Bottom Bar)**
+* **Tab 1: Tests (Library):** List of all created tests. FAB (Floating Action Button) to create a new test.
+* **Tab 2: History:** List of completed test runs.
+* **Top Bar (Global):**
+    * **Streak Counter:** Displays current streak (e.g., "🔥 5"). Logic: Increments if a test is completed between 00:00-23:59 (calendar day). Resets to 0 if a day is skipped.
+    * **Settings Icon:** Opens the settings screen.
+
+**2. Create/Edit Test Mode**
+* User can add/edit/delete Questions.
+* **Reordering:** User must be able to **manually reorder questions** (e.g., via Drag & Drop or Up/Down arrows) to define a specific sequence. This sequence is saved to the `orderIndex`.
+* User can add multiple Answers to a Question and mark one as correct.
+* User can save the Test.
+
+**3. Active Quiz Mode (The "Run")**
+* **Pre-start:** Option to toggle "Timer" (count up or count down) and "Shuffle Questions".
+* **UI:** Minimalist. Question text, list of answer buttons. Top bar has a "X" to quit.
+* **Logic:**
+    * **If Shuffle is ON:** Randomize question order.
+    * **If Shuffle is OFF:** Respect the manual `orderIndex` defined in the editor.
+    * **Instant Feedback:** When user taps an answer, immediately show Green (Correct) or Red (Wrong).
+    * Wait for a brief delay or user tap, then move to the next question.
+* **Completion:** Calculate % score.
+* **Post-Quiz Screen:**
+    * Show Score, Correct/Wrong counts.
+    * **Action:** "Review Mistakes" (See list of wrong questions).
+    * **Action:** "Retry Mistakes" (Start a mini-run with ONLY wrong questions). **Crucial:** These "mini-runs" do NOT save to History and do not affect stats.
+    * Save the main run to the Room Database.
+
+**4. History Section**
+* List of all past `QuizRun` items.
+* **Filter:** Allow user to filter history by a specific `Quiz` to see progress on that specific topic.
+* Clicking a history item shows details (which questions were wrong).
+* Ability to "Retry Mistakes" from here as well (does not save to history).
+
+**5. Settings Screen**
+* **Dark/Light Mode:** Toggle app theme.
+* **Default Shuffle:** Toggle (sets the default state for new runs).
+* **Sound Effects:** Volume slider (for correct/wrong feedback sounds).
+
+### Technical constraints
+* Use `DataStore` or `SharedPreferences` for the Streak and Settings.
+* Use `ViewModel` to handle logic.
+* Handle empty states (e.g., "No tests created yet").
+
+**Deliverables:**
+Please provide the code for:
+1.  **Room Entities & DAO** (Ensure `Question` has an ordering field).
+2.  **Main ViewModel** (Handling the quiz logic, reordering logic, streak, and database ops).
+3.  **Compose UI Screens** (Main scaffold, Quiz Editor with reordering, Quiz Screen, Result Screen).
+
+Start by outlining the folder structure and dependencies, then provide the code.

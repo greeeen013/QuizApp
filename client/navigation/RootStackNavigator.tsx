@@ -7,6 +7,7 @@ import ActiveQuizScreen from "@/screens/ActiveQuizScreen";
 import ResultsScreen from "@/screens/ResultsScreen";
 import ReviewMistakesScreen from "@/screens/ReviewMistakesScreen";
 import PreQuizScreen from "@/screens/PreQuizScreen";
+import StreakScreen from "@/screens/StreakScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 
 export type RootStackParamList = {
@@ -23,6 +24,7 @@ export type RootStackParamList = {
   };
   Results: { runId: string; isMiniRun?: boolean };
   ReviewMistakes: { runId: string };
+  Streak: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -43,6 +45,14 @@ export default function RootStackNavigator() {
         options={{
           presentation: "modal",
           headerTitle: "Settings",
+        }}
+      />
+      <Stack.Screen
+        name="Streak"
+        component={StreakScreen}
+        options={{
+          presentation: "modal",
+          headerShown: false,
         }}
       />
       <Stack.Screen

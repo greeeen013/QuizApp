@@ -14,8 +14,11 @@ export type MainTabParamList = {
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
+import { useNotifications } from "@/hooks/useNotifications";
+
 export default function MainTabNavigator() {
   const { theme, isDark } = useTheme();
+  useNotifications();
 
   return (
     <Tab.Navigator

@@ -41,6 +41,7 @@ export interface QuizRun {
   wrongCount: number;
   answers: QuizRunAnswer[];
   isIncomplete?: boolean;
+  diamondsEarned?: number;
 }
 
 export interface PausedRun {
@@ -60,12 +61,15 @@ export interface Settings {
   defaultShuffleAnswers: boolean;
   displayName: string;
   avatarPreset: number;
+  profileImage: string | null;
   vibrationEnabled: boolean;
 }
 
 export interface StreakData {
   currentStreak: number;
   lastCompletedDate: string | null;
+  freezers: number;
+  history: Record<string, "completed" | "freezed" | "missed">;
 }
 
 interface StoreState {
@@ -74,6 +78,7 @@ interface StoreState {
   pausedRuns: PausedRun[];
   settings: Settings;
   streak: StreakData;
+  diamonds: number;
 }
 
 interface StoreContextValue extends StoreState {
@@ -85,7 +90,7 @@ interface StoreContextValue extends StoreState {
   updateQuestion: (quizId: string, questionId: string, updates: Partial<Omit<Question, "id">>) => void;
   deleteQuestion: (quizId: string, questionId: string) => void;
   reorderQuestions: (quizId: string, questionIds: string[]) => void;
-  addRun: (run: Omit<QuizRun, "id" | "timestamp">) => QuizRun;
+  addRun: (run: Omit<QuizRun, "id" | "timestamp" | "diamondsEarned">) => QuizRun;
   getRun: (id: string) => QuizRun | undefined;
   getRunsByQuiz: (quizId: string) => QuizRun[];
   savePausedRun: (run: Omit<PausedRun, "id" | "timestamp">) => void;
@@ -93,6 +98,7 @@ interface StoreContextValue extends StoreState {
   getPausedRun: (id: string) => PausedRun | undefined;
   updateSettings: (updates: Partial<Settings>) => void;
   updateStreak: () => void;
+  buyFreezer: () => boolean;
   isInitialized: boolean;
 }
 
@@ -105,12 +111,15 @@ const defaultSettings: Settings = {
   defaultShuffleAnswers: false,
   displayName: "",
   avatarPreset: 0,
+  profileImage: null,
   vibrationEnabled: true,
 };
 
 const defaultStreak: StreakData = {
   currentStreak: 0,
   lastCompletedDate: null,
+  freezers: 0,
+  history: {},
 };
 
 const StoreContext = createContext<StoreContextValue | null>(null);
@@ -121,6 +130,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [pausedRuns, setPausedRuns] = useState<PausedRun[]>([]);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [streak, setStreak] = useState<StreakData>(defaultStreak);
+  const [diamonds, setDiamonds] = useState<number>(0);
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Load data on mount
@@ -160,7 +170,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             setSettings({ ...defaultSettings, ...data.settings });
           }
           if (data.streak) {
-            setStreak(data.streak);
+            setStreak({ ...defaultStreak, ...data.streak });
+          }
+          if (data.diamonds !== undefined) {
+            setDiamonds(data.diamonds);
           }
         }
       } catch (e) {
@@ -185,6 +198,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           pausedRuns,
           settings,
           streak,
+          diamonds,
         };
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       } catch (e) {
@@ -194,7 +208,76 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     const timeoutId = setTimeout(saveData, 500); // Debounce save
     return () => clearTimeout(timeoutId);
-  }, [quizzes, runs, pausedRuns, settings, streak, isInitialized]);
+  }, [quizzes, runs, pausedRuns, settings, streak, diamonds, isInitialized]);
+
+  // Check streak status on initialization
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    const checkStreak = () => {
+      const today = new Date().toISOString().split("T")[0];
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+      setStreak((prev) => {
+        // If already completed today, do nothing
+        if (prev.lastCompletedDate === today) return prev;
+
+        // If completed yesterday, streak is safe
+        if (prev.lastCompletedDate === yesterdayStr) return prev;
+
+        // If no last completed date, streak is 0 (or safe if 0)
+        if (!prev.lastCompletedDate) return prev;
+
+        // If missed more than 1 day
+        const lastDate = new Date(prev.lastCompletedDate);
+        const diffTime = Math.abs(new Date().getTime() - lastDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) - 1; // Days missed between
+
+        if (diffDays > 0) {
+          // Check if we have enough freezers
+          if (prev.freezers >= diffDays) {
+            // Use freezers
+            const newHistory = { ...prev.history };
+            // Mark missed days as freezed
+            for (let i = 1; i <= diffDays; i++) {
+              const d = new Date(lastDate);
+              d.setDate(d.getDate() + i);
+              const dStr = d.toISOString().split("T")[0];
+              newHistory[dStr] = "freezed";
+            }
+
+            return {
+              ...prev,
+              freezers: prev.freezers - diffDays,
+              lastCompletedDate: yesterdayStr, // Pretend we finished yesterday to keep streak alive? 
+              // Actually, if we freeze, the streak count stays, but lastCompletedDate should probably update to "yesterday" effectively?
+              // Or we just don't reset the streak.
+              // If we set lastCompletedDate to yesterdayStr, the next check will see it as "completed yesterday".
+              history: newHistory,
+            };
+          } else {
+            // Not enough freezers, reset streak
+            // Mark days as missed?
+            const newHistory = { ...prev.history };
+            // We could mark them, but for now just reset
+            return {
+              ...prev,
+              currentStreak: 0,
+              // lastCompletedDate stays as is, so we know when it broke? Or null?
+              // If we keep it, the next check will still see a gap.
+              // But currentStreak is 0, so it doesn't matter much.
+            };
+          }
+        }
+        return prev;
+      });
+    };
+
+    checkStreak();
+  }, [isInitialized]);
+
 
   const addQuiz = useCallback((quiz: Omit<Quiz, "id" | "createdAt" | "updatedAt">) => {
     const newQuiz: Quiz = {
@@ -313,13 +396,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
-  const addRun = useCallback((run: Omit<QuizRun, "id" | "timestamp">) => {
+  const addRun = useCallback((run: Omit<QuizRun, "id" | "timestamp" | "diamondsEarned">) => {
+    // Calculate diamonds
+    // 0.5 diamonds per question * (scorePercentage / 100)
+    const rawDiamonds = run.totalQuestions * 0.5 * (run.scorePercentage / 100);
+    // Store as float, but we might want to round it for display or storage? 
+    // Requirement: "hodnota se uloží v desetinném čísle" (store as decimal)
+    const diamondsEarned = rawDiamonds;
+
     const newRun: QuizRun = {
       ...run,
       id: generateId(),
       timestamp: new Date(),
+      diamondsEarned,
     };
     setRuns((prev) => [newRun, ...prev]);
+    setDiamonds((prev) => prev + diamondsEarned);
+
     return newRun;
   }, []);
 
@@ -337,10 +430,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       id: generateId(),
       timestamp: new Date(),
     };
-    // If a paused run for this quiz already exists, replace it? 
-    // Requirement says "in history... button resume". 
-    // Let's allow multiple paused runs for now, or maybe just one per quiz?
-    // User said: "v historii testů bude ten test co právě zavřel" -> implies it's a list item.
     setPausedRuns((prev) => [newPausedRun, ...prev]);
   }, []);
 
@@ -366,32 +455,34 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayStr = yesterday.toISOString().split("T")[0];
 
+      let newStreak = 1;
       if (prev.lastCompletedDate === yesterdayStr) {
-        return {
-          currentStreak: prev.currentStreak + 1,
-          lastCompletedDate: today,
-        };
+        newStreak = prev.currentStreak + 1;
       }
+
       return {
-        currentStreak: 1,
+        ...prev,
+        currentStreak: newStreak,
         lastCompletedDate: today,
+        history: {
+          ...prev.history,
+          [today]: "completed",
+        },
       };
     });
   }, []);
 
-  useEffect(() => {
-    const today = new Date().toISOString().split("T")[0];
-    if (streak.lastCompletedDate) {
-      const lastDate = new Date(streak.lastCompletedDate);
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split("T")[0];
-
-      if (streak.lastCompletedDate !== today && streak.lastCompletedDate !== yesterdayStr) {
-        setStreak({ currentStreak: 0, lastCompletedDate: null });
-      }
+  const buyFreezer = useCallback(() => {
+    if (diamonds >= 100) {
+      setDiamonds((prev) => prev - 100);
+      setStreak((prev) => ({
+        ...prev,
+        freezers: prev.freezers + 1,
+      }));
+      return true;
     }
-  }, [streak.lastCompletedDate]);
+    return false;
+  }, [diamonds]);
 
   const value: StoreContextValue = {
     quizzes,
@@ -399,6 +490,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     pausedRuns,
     settings,
     streak,
+    diamonds,
     addQuiz,
     updateQuiz,
     deleteQuiz,
@@ -415,6 +507,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     getPausedRun,
     updateSettings,
     updateStreak,
+    buyFreezer,
     isInitialized,
   };
 

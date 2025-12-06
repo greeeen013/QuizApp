@@ -8,7 +8,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { HeaderTitle } from "@/components/HeaderTitle";
+import { AvatarPreset } from "@/components/AvatarPreset";
 import { StreakBadge } from "@/components/StreakBadge";
 import { FAB } from "@/components/FAB";
 import { TestCard } from "@/components/TestCard";
@@ -29,7 +29,7 @@ export default function TestsLibraryScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
-  const { quizzes, streak, deleteQuiz, addQuiz } = useStore();
+  const { quizzes, streak, deleteQuiz, addQuiz, settings } = useStore();
   const [isImportModalVisible, setIsImportModalVisible] = React.useState(false);
 
   const sortedQuizzes = [...quizzes].sort(
@@ -92,6 +92,10 @@ export default function TestsLibraryScreen() {
     setIsImportModalVisible(true);
   }, []);
 
+  const handleStreakPress = useCallback(() => {
+    navigation.navigate("Streak");
+  }, [navigation]);
+
   const handleImportQuiz = useCallback(
     (quizData: any) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -126,9 +130,21 @@ export default function TestsLibraryScreen() {
           },
         ]}
       >
-        <HeaderTitle title="My Tests" />
+        <View style={styles.profileContainer}>
+          <AvatarPreset
+            preset={settings.avatarPreset}
+            imageUri={settings.profileImage}
+            size={40}
+          />
+          <ThemedText type="body" style={styles.profileName}>
+            {settings.displayName || "User"}
+          </ThemedText>
+        </View>
         <View style={styles.headerRight}>
-          <StreakBadge count={streak.currentStreak} />
+          <StreakBadge
+            count={streak.currentStreak}
+            onPress={handleStreakPress}
+          />
           <Pressable
             onPress={handleImportPress}
             hitSlop={8}
@@ -146,7 +162,7 @@ export default function TestsLibraryScreen() {
         </View>
       </View>
     ),
-    [insets.top, theme, streak.currentStreak, handleSettingsPress]
+    [insets.top, theme, streak.currentStreak, handleSettingsPress, handleStreakPress, settings.avatarPreset, settings.profileImage, settings.displayName]
   );
 
   return (
@@ -216,5 +232,14 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: Spacing.md,
+  },
+  profileContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  profileName: {
+    fontWeight: "600",
+    fontSize: 18,
   },
 });

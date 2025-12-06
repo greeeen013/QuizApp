@@ -6,11 +6,13 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { HeaderButton } from "@react-navigation/elements";
 import { Feather } from "@expo/vector-icons";
 import Constants from "expo-constants";
+import * as ImagePicker from "expo-image-picker";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { SettingsRow } from "@/components/SettingsRow";
 import { ToggleSwitch } from "@/components/ToggleSwitch";
 import { AvatarPreset } from "@/components/AvatarPreset";
+import { Button } from "@/components/Button";
 import { useStore } from "@/lib/store";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius } from "@/constants/theme";
@@ -33,12 +35,29 @@ export default function SettingsScreen() {
     navigation.goBack();
   }, [navigation, displayName, settings.displayName, updateSettings]);
 
+
+
+  // ...
+
   const handleAvatarChange = useCallback(
     (preset: number) => {
       updateSettings({ avatarPreset: preset });
     },
     [updateSettings]
   );
+
+  const handleImagePick = useCallback(async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+
+    if (!result.canceled) {
+      updateSettings({ profileImage: result.assets[0].uri });
+    }
+  }, [updateSettings]);
 
   const handleShuffleToggle = useCallback(
     (value: boolean) => {
@@ -80,13 +99,34 @@ export default function SettingsScreen() {
           <View style={[styles.card, { backgroundColor: theme.backgroundDefault }]}>
             <View style={styles.avatarSection}>
               <ThemedText type="small" style={styles.label}>
-                Avatar
+                Profile Picture & Shape
+              </ThemedText>
+
+              <View style={styles.profileHeader}>
+                <AvatarPreset
+                  preset={settings.avatarPreset}
+                  imageUri={settings.profileImage}
+                  size={80}
+                />
+                <Button
+                  onPress={handleImagePick}
+                  style={{ height: 40, paddingHorizontal: Spacing.md }}
+                >
+                  Change Photo
+                </Button>
+              </View>
+
+              <View style={[styles.divider, { marginVertical: Spacing.lg }]} />
+
+              <ThemedText type="small" style={[styles.label, { marginBottom: Spacing.sm }]}>
+                Shape Style
               </ThemedText>
               <View style={styles.avatarOptions}>
                 {[0, 1, 2].map((preset) => (
                   <AvatarPreset
                     key={preset}
                     preset={preset}
+                    imageUri={settings.profileImage}
                     selected={settings.avatarPreset === preset}
                     onPress={() => handleAvatarChange(preset)}
                     size={56}
@@ -247,5 +287,10 @@ const styles = StyleSheet.create({
   },
   streakDetails: {
     flex: 1,
+  },
+  profileHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.lg,
   },
 });

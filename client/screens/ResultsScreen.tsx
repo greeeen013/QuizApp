@@ -41,10 +41,17 @@ export default function ResultsScreen() {
     return lastRun.answers.filter((a) => !a.isCorrect);
   }, [lastRun]);
 
-  const handleClose = useCallback(() => {
-    navigation.popToTop();
-    navigation.goBack();
+  const safeGoBack = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate("Main");
+    }
   }, [navigation]);
+
+  const handleClose = useCallback(() => {
+    safeGoBack();
+  }, [safeGoBack]);
 
   const handleReviewMistakes = useCallback(() => {
     if (!lastRun) return;
@@ -59,6 +66,7 @@ export default function ResultsScreen() {
     navigation.replace("ActiveQuiz", {
       testId: lastRun.quizId,
       shuffle: false,
+      shuffleAnswers: false,
       questionIds: wrongAnswers.map((a) => a.questionId),
     });
   }, [lastRun, wrongAnswers, navigation, getQuiz]);

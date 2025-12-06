@@ -8,6 +8,7 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { HistoryCard } from "@/components/HistoryCard";
+import { PausedTestCard } from "@/components/PausedTestCard";
 import { EmptyState } from "@/components/EmptyState";
 import { useStore, QuizRun } from "@/lib/store";
 import { useTheme } from "@/hooks/useTheme";
@@ -21,7 +22,7 @@ export default function HistoryListScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
-  const { runs, quizzes } = useStore();
+  const { runs, quizzes, pausedRuns, deletePausedRun } = useStore();
   const [filterQuizId, setFilterQuizId] = useState<string | null>(null);
   const [showFilterModal, setShowFilterModal] = useState(false);
 
@@ -29,6 +30,11 @@ export default function HistoryListScreen() {
     if (!filterQuizId) return runs;
     return runs.filter((r) => r.quizId === filterQuizId);
   }, [runs, filterQuizId]);
+
+  const filteredPausedRuns = useMemo(() => {
+    if (!filterQuizId) return pausedRuns;
+    return pausedRuns.filter((r) => r.quizId === filterQuizId);
+  }, [pausedRuns, filterQuizId]);
 
   const uniqueQuizIds = useMemo(() => {
     const ids = new Set(runs.map((r) => r.quizId));
@@ -40,6 +46,25 @@ export default function HistoryListScreen() {
       navigation.navigate("HistoryDetail", { runId: run.id });
     },
     [navigation]
+  );
+
+  const handleResumeRun = useCallback(
+    (pausedRunId: string, testId: string) => {
+      // @ts-ignore - navigation type mismatch
+      navigation.navigate("ActiveQuiz", {
+        testId,
+        shuffle: false, // Will be overridden by saved state
+        pausedRunId
+      });
+    },
+    [navigation]
+  );
+
+  const handleDeletePausedRun = useCallback(
+    (id: string) => {
+      deletePausedRun(id);
+    },
+    [deletePausedRun]
   );
 
   const handleFilterPress = useCallback(() => {
@@ -109,9 +134,34 @@ export default function HistoryListScreen() {
     ]
   );
 
+  const renderHeaderWithPaused = useCallback(() => (
+    <View>
+      {renderHeader()}
+      {filteredPausedRuns.length > 0 && (
+        <View style={styles.pausedSection}>
+          <ThemedText type="h4" style={styles.sectionTitle}>
+            Paused Tests
+          </ThemedText>
+          {filteredPausedRuns.map((run) => (
+            <PausedTestCard
+              key={run.id}
+              pausedRun={run}
+              onResume={() => handleResumeRun(run.id, run.quizId)}
+              onDelete={() => handleDeletePausedRun(run.id)}
+            />
+          ))}
+          <View style={styles.separator} />
+          <ThemedText type="h4" style={styles.sectionTitle}>
+            Completed Tests
+          </ThemedText>
+        </View>
+      )}
+    </View>
+  ), [renderHeader, filteredPausedRuns, handleResumeRun, handleDeletePausedRun]);
+
   return (
     <ThemedView style={styles.container}>
-      {runs.length === 0 ? (
+      {runs.length === 0 && pausedRuns.length === 0 ? (
         <>
           {renderHeader()}
           <EmptyState
@@ -125,7 +175,7 @@ export default function HistoryListScreen() {
           data={filteredRuns}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          ListHeaderComponent={renderHeader}
+          ListHeaderComponent={renderHeaderWithPaused}
           contentContainerStyle={[
             styles.listContent,
             { paddingBottom: tabBarHeight + Spacing.xl },
@@ -285,5 +335,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.xs,
     marginBottom: Spacing.xs,
+  },
+  pausedSection: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  sectionTitle: {
+    marginBottom: Spacing.md,
+    color: "#666",
   },
 });

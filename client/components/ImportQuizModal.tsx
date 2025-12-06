@@ -8,6 +8,8 @@ import {
     Platform,
     Alert,
 } from "react-native";
+import * as DocumentPicker from "expo-document-picker";
+import { readAsStringAsync } from "expo-file-system/legacy";
 import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -46,6 +48,52 @@ export function ImportQuizModal({
         }
     }, [jsonText, onImport, onClose]);
 
+    const handlePickFile = useCallback(async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: ["application/json", "text/html", "*/*"],
+                copyToCacheDirectory: true,
+            });
+
+            if (result.canceled) return;
+
+            const file = result.assets[0];
+            let content = await readAsStringAsync(file.uri);
+
+            // Strip BOM if present
+            if (content.charCodeAt(0) === 0xFEFF) {
+                content = content.slice(1);
+            }
+
+            let data;
+            try {
+                // Try parsing directly
+                data = JSON.parse(content);
+            } catch (e) {
+                // If direct parse fails, try to find JSON object in content (e.g. if it's HTML)
+                const jsonMatch = content.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    try {
+                        data = JSON.parse(jsonMatch[0]);
+                    } catch (e2) {
+                        // Failed to parse extracted JSON
+                    }
+                }
+            }
+
+            if (data && data.title && Array.isArray(data.questions)) {
+                onImport(data);
+                setJsonText("");
+                onClose();
+            } else {
+                throw new Error("Invalid quiz format: Missing title or questions array");
+            }
+        } catch (error: any) {
+            console.error("Import error:", error);
+            Alert.alert("Import Failed", `Error: ${error.message}`);
+        }
+    }, [onImport, onClose]);
+
     return (
         <Modal
             visible={visible}
@@ -68,6 +116,20 @@ export function ImportQuizModal({
                         </Button>
                     </View>
 
+                    <Button
+                        onPress={handlePickFile}
+                        style={{ marginBottom: Spacing.lg, flexDirection: "row", gap: Spacing.sm }}
+                    >
+                        <Feather name="file" size={20} color="white" />
+                        <ThemedText style={{ color: "white", fontWeight: "600" }}>Pick File</ThemedText>
+                    </Button>
+
+                    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: Spacing.lg }}>
+                        <View style={{ flex: 1, height: 1, backgroundColor: theme.border }} />
+                        <ThemedText style={{ marginHorizontal: Spacing.md, color: theme.textSecondary }}>OR</ThemedText>
+                        <View style={{ flex: 1, height: 1, backgroundColor: theme.border }} />
+                    </View>
+
                     <ThemedText style={{ marginBottom: Spacing.md, color: theme.textSecondary }}>
                         Paste the quiz code below to import it into your library.
                     </ThemedText>
@@ -78,6 +140,7 @@ export function ImportQuizModal({
                         placeholder="Paste JSON code here..."
                         placeholderTextColor={theme.textSecondary}
                         multiline
+                        maxLength={1000000}
                         style={[
                             styles.input,
                             {
@@ -108,6 +171,7 @@ const styles = StyleSheet.create({
         borderTopRightRadius: BorderRadius.lg,
         padding: Spacing.lg,
         paddingBottom: Spacing["3xl"],
+        maxHeight: "90%",
     },
     header: {
         flexDirection: "row",
@@ -116,7 +180,7 @@ const styles = StyleSheet.create({
         marginBottom: Spacing.lg,
     },
     input: {
-        height: 150,
+        height: 300,
         borderWidth: 1,
         borderRadius: BorderRadius.sm,
         padding: Spacing.md,

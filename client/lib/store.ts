@@ -40,10 +40,24 @@ export interface QuizRun {
   correctCount: number;
   wrongCount: number;
   answers: QuizRunAnswer[];
+  isIncomplete?: boolean;
+}
+
+export interface PausedRun {
+  id: string;
+  quizId: string;
+  currentQuestionIndex: number;
+  selectedAnswerIds: string[]; // Answers for the current question if any
+  answers: QuizRunAnswer[]; // Already answered questions
+  timestamp: Date;
+  shuffle: boolean;
+  shuffleAnswers?: boolean;
+  questionIds?: string[]; // If a subset of questions was used
 }
 
 export interface Settings {
   defaultShuffle: boolean;
+  defaultShuffleAnswers: boolean;
   displayName: string;
   avatarPreset: number;
   vibrationEnabled: boolean;
@@ -57,6 +71,7 @@ export interface StreakData {
 interface StoreState {
   quizzes: Quiz[];
   runs: QuizRun[];
+  pausedRuns: PausedRun[];
   settings: Settings;
   streak: StreakData;
 }
@@ -73,6 +88,9 @@ interface StoreContextValue extends StoreState {
   addRun: (run: Omit<QuizRun, "id" | "timestamp">) => QuizRun;
   getRun: (id: string) => QuizRun | undefined;
   getRunsByQuiz: (quizId: string) => QuizRun[];
+  savePausedRun: (run: Omit<PausedRun, "id" | "timestamp">) => void;
+  deletePausedRun: (id: string) => void;
+  getPausedRun: (id: string) => PausedRun | undefined;
   updateSettings: (updates: Partial<Settings>) => void;
   updateStreak: () => void;
   isInitialized: boolean;
@@ -84,6 +102,7 @@ const generateId = () => Math.random().toString(36).substring(2, 15);
 
 const defaultSettings: Settings = {
   defaultShuffle: false,
+  defaultShuffleAnswers: false,
   displayName: "",
   avatarPreset: 0,
   vibrationEnabled: true,
@@ -99,6 +118,7 @@ const StoreContext = createContext<StoreContextValue | null>(null);
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [runs, setRuns] = useState<QuizRun[]>([]);
+  const [pausedRuns, setPausedRuns] = useState<PausedRun[]>([]);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [streak, setStreak] = useState<StreakData>(defaultStreak);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -123,6 +143,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (data.runs) {
             setRuns(
               data.runs.map((r: any) => ({
+                ...r,
+                timestamp: new Date(r.timestamp),
+              }))
+            );
+          }
+          if (data.pausedRuns) {
+            setPausedRuns(
+              data.pausedRuns.map((r: any) => ({
                 ...r,
                 timestamp: new Date(r.timestamp),
               }))
@@ -154,6 +182,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const data = {
           quizzes,
           runs,
+          pausedRuns,
           settings,
           streak,
         };
@@ -165,7 +194,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     const timeoutId = setTimeout(saveData, 500); // Debounce save
     return () => clearTimeout(timeoutId);
-  }, [quizzes, runs, settings, streak, isInitialized]);
+  }, [quizzes, runs, pausedRuns, settings, streak, isInitialized]);
 
   const addQuiz = useCallback((quiz: Omit<Quiz, "id" | "createdAt" | "updatedAt">) => {
     const newQuiz: Quiz = {
@@ -173,6 +202,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       id: generateId(),
       createdAt: new Date(),
       updatedAt: new Date(),
+      questions: quiz.questions.map((q) => ({
+        ...q,
+        id: q.id || generateId(),
+        answers: q.answers.map((a) => ({
+          ...a,
+          id: a.id || generateId(),
+        })),
+      })),
     };
     setQuizzes((prev) => [...prev, newQuiz]);
     return newQuiz;
@@ -189,6 +226,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const deleteQuiz = useCallback((id: string) => {
     setQuizzes((prev) => prev.filter((q) => q.id !== id));
     setRuns((prev) => prev.filter((r) => r.quizId !== id));
+    setPausedRuns((prev) => prev.filter((r) => r.quizId !== id));
   }, []);
 
   const getQuiz = useCallback((id: string) => {
@@ -293,6 +331,27 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return runs.filter((r) => r.quizId === quizId);
   }, [runs]);
 
+  const savePausedRun = useCallback((run: Omit<PausedRun, "id" | "timestamp">) => {
+    const newPausedRun: PausedRun = {
+      ...run,
+      id: generateId(),
+      timestamp: new Date(),
+    };
+    // If a paused run for this quiz already exists, replace it? 
+    // Requirement says "in history... button resume". 
+    // Let's allow multiple paused runs for now, or maybe just one per quiz?
+    // User said: "v historii testů bude ten test co právě zavřel" -> implies it's a list item.
+    setPausedRuns((prev) => [newPausedRun, ...prev]);
+  }, []);
+
+  const deletePausedRun = useCallback((id: string) => {
+    setPausedRuns((prev) => prev.filter((r) => r.id !== id));
+  }, []);
+
+  const getPausedRun = useCallback((id: string) => {
+    return pausedRuns.find((r) => r.id === id);
+  }, [pausedRuns]);
+
   const updateSettings = useCallback((updates: Partial<Settings>) => {
     setSettings((prev) => ({ ...prev, ...updates }));
   }, []);
@@ -337,6 +396,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const value: StoreContextValue = {
     quizzes,
     runs,
+    pausedRuns,
     settings,
     streak,
     addQuiz,
@@ -350,6 +410,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     addRun,
     getRun,
     getRunsByQuiz,
+    savePausedRun,
+    deletePausedRun,
+    getPausedRun,
     updateSettings,
     updateStreak,
     isInitialized,

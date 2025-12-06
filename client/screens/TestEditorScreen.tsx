@@ -382,7 +382,7 @@ export default function TestEditorScreen() {
         keyExtractor={(item) => item.id}
         renderItem={renderQuestion}
         ListHeaderComponent={header}
-        ListFooterComponent={renderFooter}
+        ListFooterComponent={renderFooter()}
         contentContainerStyle={[
           styles.content,
           { paddingBottom: insets.bottom + Spacing.xl },

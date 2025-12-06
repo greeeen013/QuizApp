@@ -5,6 +5,7 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { HeaderButton } from "@react-navigation/elements";
 import { Feather } from "@expo/vector-icons";
+import Constants from "expo-constants";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { SettingsRow } from "@/components/SettingsRow";
@@ -174,7 +175,7 @@ export default function SettingsScreen() {
               label="Version"
               rightElement={
                 <ThemedText style={{ color: theme.textSecondary }}>
-                  1.0.0
+                  {Constants.expoConfig?.version ?? "1.0.0"}
                 </ThemedText>
               }
             />

@@ -14,7 +14,13 @@ export type RootStackParamList = {
   Settings: undefined;
   QuestionEditor: { testId: string; questionId?: string };
   PreQuiz: { testId: string };
-  ActiveQuiz: { testId: string; shuffle: boolean; questionIds?: string[] };
+  ActiveQuiz: {
+    testId: string;
+    shuffle: boolean;
+    shuffleAnswers: boolean;
+    questionIds?: string[];
+    pausedRunId?: string;
+  };
   Results: { runId: string; isMiniRun?: boolean };
   ReviewMistakes: { runId: string };
 };

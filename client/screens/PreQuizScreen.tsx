@@ -29,6 +29,7 @@ export default function PreQuizScreen() {
   const quiz = getQuiz(testId);
 
   const [shuffle, setShuffle] = useState(settings.defaultShuffle);
+  const [shuffleAnswers, setShuffleAnswers] = useState(settings.defaultShuffleAnswers);
 
   const handleClose = useCallback(() => {
     navigation.goBack();
@@ -41,6 +42,7 @@ export default function PreQuizScreen() {
     navigation.replace("ActiveQuiz", {
       testId,
       shuffle,
+      shuffleAnswers,
     });
   }, [navigation, testId, shuffle]);
 
@@ -55,6 +57,7 @@ export default function PreQuizScreen() {
         questions: quiz.questions.map((q) => ({
           text: q.text,
           orderIndex: q.orderIndex,
+          images: q.images,
           answers: q.answers.map((a) => ({
             text: a.text,
             isCorrect: a.isCorrect,
@@ -203,6 +206,25 @@ export default function PreQuizScreen() {
           </View>
         </View>
 
+        <View
+          style={[
+            styles.optionCard,
+            { backgroundColor: theme.backgroundDefault, marginTop: Spacing.md },
+          ]}
+        >
+          <View style={styles.optionRow}>
+            <View style={styles.optionInfo}>
+              <Feather name="list" size={20} color={theme.primary} />
+              <View>
+                <ThemedText>Shuffle Answers</ThemedText>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  Randomize answer order
+                </ThemedText>
+              </View>
+            </View>
+            <ToggleSwitch value={shuffleAnswers} onValueChange={setShuffleAnswers} />
+          </View>
+        </View>
         <View style={styles.actions}>
           <Button
             onPress={handleStartQuiz}
@@ -238,7 +260,7 @@ export default function PreQuizScreen() {
           </Button>
         </View>
       </ScrollView>
-    </ThemedView>
+    </ThemedView >
   );
 }
 

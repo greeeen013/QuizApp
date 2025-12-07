@@ -55,21 +55,17 @@ export default function ResultsScreen() {
 
   const handleReviewMistakes = useCallback(() => {
     if (!lastRun) return;
-    navigation.navigate("ReviewMistakes", { runId: lastRun.id });
+    navigation.navigate("ReviewMistakes", { runId: lastRun.id, mode: 'mistakes' });
   }, [navigation, lastRun]);
 
-  const handleRetryMistakes = useCallback(() => {
+  const handleReviewAll = useCallback(() => {
     if (!lastRun) return;
-    const quiz = getQuiz(lastRun.quizId);
-    if (!quiz) return;
+    navigation.navigate("ReviewMistakes", { runId: lastRun.id, mode: 'all' });
+  }, [navigation, lastRun]);
 
-    navigation.replace("ActiveQuiz", {
-      testId: lastRun.quizId,
-      shuffle: false,
-      shuffleAnswers: false,
-      questionIds: wrongAnswers.map((a) => a.questionId),
-    });
-  }, [lastRun, wrongAnswers, navigation, getQuiz]);
+  // handleRetryMistakes removed as requested
+
+  // Removed handleRetryMistakes logic
 
   const handleDone = useCallback(() => {
     if (settings.vibrationEnabled) {
@@ -149,6 +145,14 @@ export default function ResultsScreen() {
       >
         <View style={styles.scoreSection}>
           <ScoreCircle score={lastRun!.scorePercentage} />
+          {lastRun!.diamondsEarned !== undefined && lastRun!.diamondsEarned > 0 && (
+            <View style={styles.diamondsContainer}>
+              <Feather name="box" size={20} color={theme.primary} />
+              <ThemedText type="body" style={{ color: theme.primary, fontWeight: "600" }}>
+                +{lastRun!.diamondsEarned.toFixed(1)}
+              </ThemedText>
+            </View>
+          )}
         </View>
 
         <View style={styles.statsRow}>
@@ -192,7 +196,7 @@ export default function ResultsScreen() {
               Review Mistakes ({wrongAnswers.length})
             </Button>
             <Button
-              onPress={handleRetryMistakes}
+              onPress={handleReviewAll}
               style={[
                 styles.actionButton,
                 {
@@ -203,16 +207,24 @@ export default function ResultsScreen() {
               ]}
             >
               <ThemedText style={{ color: theme.primary, fontWeight: "600" }}>
-                Retry Mistakes
+                Review Complete Test
               </ThemedText>
             </Button>
           </View>
         ) : (
-          <View style={styles.perfectScore}>
-            <Feather name="award" size={32} color={theme.success} />
-            <ThemedText type="h4" style={{ color: theme.success }}>
-              Perfect Score!
-            </ThemedText>
+          <View style={styles.mistakesSection}>
+            <Button
+              onPress={handleReviewAll}
+              style={styles.actionButton}
+            >
+              Review Complete Test
+            </Button>
+            <View style={styles.perfectScore}>
+              <Feather name="award" size={32} color={theme.success} />
+              <ThemedText type="h4" style={{ color: theme.success }}>
+                Perfect Score!
+              </ThemedText>
+            </View>
           </View>
         )}
 
@@ -240,6 +252,16 @@ const styles = StyleSheet.create({
   scoreSection: {
     alignItems: "center",
     marginBottom: Spacing["2xl"],
+  },
+  diamondsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.md,
+    backgroundColor: "#4F46E51A", // Slight primary tint background
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
   },
   statsRow: {
     flexDirection: "row",

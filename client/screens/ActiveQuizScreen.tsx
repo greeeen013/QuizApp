@@ -369,9 +369,13 @@ export default function ActiveQuizScreen() {
       isCorrect,
     };
 
-    setAnswers((prev) => [...prev, newAnswer]);
-
-    setAnswers((prev) => [...prev, newAnswer]);
+    setAnswers((prev) => {
+      // Prevent duplicates if already added
+      if (prev.some(a => a.questionId === newAnswer.questionId)) {
+        return prev;
+      }
+      return [...prev, newAnswer];
+    });
 
     if (!settings.manualConfirmation) {
       const delay = settings.autoAdvanceDelay * 1000;

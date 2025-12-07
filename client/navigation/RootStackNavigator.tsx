@@ -23,7 +23,7 @@ export type RootStackParamList = {
     pausedRunId?: string;
   };
   Results: { runId: string; isMiniRun?: boolean };
-  ReviewMistakes: { runId: string };
+  ReviewMistakes: { runId: string; mode?: 'mistakes' | 'all' };
   Streak: undefined;
 };
 

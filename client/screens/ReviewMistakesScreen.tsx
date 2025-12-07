@@ -31,33 +31,45 @@ export default function ReviewMistakesScreen() {
   const insets = useSafeAreaInsets();
   const { getRun, getQuiz } = useStore();
 
-  const { runId } = route.params;
+  const { runId, mode = 'mistakes' } = route.params;
   const run = getRun(runId);
   const quiz = run ? getQuiz(run.quizId) : undefined;
 
-  const mistakes = useMemo<MistakeItem[]>(() => {
+  const questionsToReview = useMemo<MistakeItem[]>(() => {
     if (!run || !quiz) return [];
-    return run.answers
-      .filter((a) => !a.isCorrect)
-      .map((a) => {
-        const question = quiz.questions.find((q) => q.id === a.questionId);
-        const selectedAnswers =
-          question?.answers
-            .filter((ans) => a.selectedAnswerIds.includes(ans.id))
-            .map((ans) => ans.text) ?? [];
-        const correctAnswers =
-          question?.answers
-            .filter((ans) => ans.isCorrect)
-            .map((ans) => ans.text) ?? [];
-        return {
-          questionId: a.questionId,
-          questionText: question?.text ?? "Unknown question",
-          questionImages: question?.images,
-          selectedAnswers,
-          correctAnswers,
-        };
+
+    let answersToReview = run.answers;
+    if (mode === 'mistakes') {
+      answersToReview = run.answers.filter((a) => !a.isCorrect);
+    }
+    // If mode is 'all', we use all answers
+
+    const seenQuestions = new Set<string>();
+
+    return answersToReview.reduce<MistakeItem[]>((acc, a) => {
+      if (seenQuestions.has(a.questionId)) return acc;
+      seenQuestions.add(a.questionId);
+
+      const question = quiz.questions.find((q) => q.id === a.questionId);
+      const selectedAnswers =
+        question?.answers
+          .filter((ans) => a.selectedAnswerIds.includes(ans.id))
+          .map((ans) => ans.text) ?? [];
+      const correctAnswers =
+        question?.answers
+          .filter((ans) => ans.isCorrect)
+          .map((ans) => ans.text) ?? [];
+
+      acc.push({
+        questionId: a.questionId,
+        questionText: question?.text ?? "Unknown question",
+        questionImages: question?.images,
+        selectedAnswers,
+        correctAnswers,
       });
-  }, [run, quiz]);
+      return acc;
+    }, []);
+  }, [run, quiz, mode]);
 
   const handleClose = useCallback(() => {
     navigation.goBack();
@@ -69,9 +81,9 @@ export default function ReviewMistakesScreen() {
       testId: run.quizId,
       shuffle: false,
       shuffleAnswers: false,
-      questionIds: mistakes.map((m) => m.questionId),
+      questionIds: questionsToReview.map((m) => m.questionId),
     });
-  }, [run, mistakes, navigation]);
+  }, [run, questionsToReview, navigation]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -80,8 +92,9 @@ export default function ReviewMistakesScreen() {
           <Feather name="x" size={22} color={theme.text} />
         </HeaderButton>
       ),
+      headerTitle: mode === 'all' ? "Review Test" : "Review Mistakes",
     });
-  }, [navigation, handleClose, theme.text]);
+  }, [navigation, handleClose, theme.text, mode]);
 
   if (!run) {
     return (
@@ -180,38 +193,39 @@ export default function ReviewMistakesScreen() {
   return (
     <ThemedView style={styles.container}>
       <FlatList
-        data={mistakes}
+        data={questionsToReview}
         keyExtractor={(item) => item.questionId}
         renderItem={renderItem}
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: insets.bottom + Spacing.xl },
+          { paddingBottom: Spacing.xl }, // Add padding for content, but bottom padding is handled by surrounding view or safe area if sticky?
+          // Actually, if we have a sticky footer, we need enough padding so the last item isn't covered.
+          // The sticky footer will sit on top of the list bottom.
+          { paddingBottom: 100 + insets.bottom }
         ]}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListHeaderComponent={
           <View style={styles.header}>
             <ThemedText type="h4">
-              {mistakes.length} Question{mistakes.length !== 1 ? "s" : ""} Wrong
+              {questionsToReview.length} Question{questionsToReview.length !== 1 ? "s" : ""}
             </ThemedText>
           </View>
         }
-        ListFooterComponent={
-          mistakes.length > 0 ? (
-            <View style={styles.footer}>
-              <Button onPress={handleRetryMistakes}>
-                Retry These Questions
-              </Button>
-              <ThemedText
-                type="small"
-                style={[styles.footerNote, { color: theme.textSecondary }]}
-              >
-                Practice runs won't be saved to history
-              </ThemedText>
-            </View>
-          ) : null
-        }
         showsVerticalScrollIndicator={false}
       />
+      {questionsToReview.length > 0 && (
+        <View style={[styles.stickyFooter, { paddingBottom: insets.bottom + Spacing.lg, backgroundColor: theme.backgroundDefault, borderTopColor: theme.border }]}>
+          <Button onPress={handleRetryMistakes}>
+            Retry These Questions
+          </Button>
+          <ThemedText
+            type="small"
+            style={[styles.footerNote, { color: theme.textSecondary }]}
+          >
+            Practice runs won't be saved to history
+          </ThemedText>
+        </View>
+      )}
     </ThemedView>
   );
 }
@@ -290,6 +304,10 @@ const styles = StyleSheet.create({
   },
   footerNote: {
     textAlign: "center",
-    marginTop: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  stickyFooter: {
+    padding: Spacing.lg,
+    borderTopWidth: 1,
   },
 });

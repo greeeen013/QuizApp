@@ -73,6 +73,13 @@ export default function SettingsScreen() {
     [updateSettings]
   );
 
+  const handleStreakAnimationsToggle = useCallback(
+    (value: boolean) => {
+      updateSettings({ streakAnimationsEnabled: value });
+    },
+    [updateSettings]
+  );
+
   const handleManualConfirmationToggle = useCallback(
     (value: boolean) => {
       updateSettings({ manualConfirmation: value });
@@ -229,6 +236,17 @@ export default function SettingsScreen() {
                 <ToggleSwitch
                   value={settings.manualConfirmation}
                   onValueChange={handleManualConfirmationToggle}
+                />
+              }
+            />
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            <SettingsRow
+              label="Streak Animations"
+              description="Show fire animation on winning streaks"
+              rightElement={
+                <ToggleSwitch
+                  value={settings.streakAnimationsEnabled}
+                  onValueChange={handleStreakAnimationsToggle}
                 />
               }
             />

@@ -30,6 +30,7 @@ import { useStore, Question, QuizRunAnswer } from "@/lib/store";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { StreakOverlay } from "@/components/StreakOverlay";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, "ActiveQuiz">;
@@ -112,6 +113,8 @@ export default function ActiveQuizScreen() {
   const [selectedAnswerIds, setSelectedAnswerIds] = useState<string[]>(pausedRun?.selectedAnswerIds ?? []);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [answers, setAnswers] = useState<QuizRunAnswer[]>(pausedRun?.answers ?? []);
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [showStreakOverlay, setShowStreakOverlay] = useState(false);
 
   const currentQuestion = questions[currentIndex];
   const progress = ((currentIndex + 1) / questions.length) * 100;
@@ -369,6 +372,16 @@ export default function ActiveQuizScreen() {
       isCorrect,
     };
 
+    if (isCorrect) {
+      const newStreak = currentStreak + 1;
+      setCurrentStreak(newStreak);
+      if (newStreak >= 3 && settings.streakAnimationsEnabled) {
+        setShowStreakOverlay(true);
+      }
+    } else {
+      setCurrentStreak(0);
+    }
+
     setAnswers((prev) => {
       // Prevent duplicates if already added
       if (prev.some(a => a.questionId === newAnswer.questionId)) {
@@ -376,6 +389,9 @@ export default function ActiveQuizScreen() {
       }
       return [...prev, newAnswer];
     });
+
+    // Define updatedAnswers for use in finishQuiz logic
+    const updatedAnswers = [...answers, newAnswer];
 
     if (!settings.manualConfirmation) {
       const delay = settings.autoAdvanceDelay * 1000;
@@ -569,7 +585,13 @@ export default function ActiveQuizScreen() {
             Practice mode - results won't be saved
           </ThemedText>
         ) : null}
+        ) : null}
       </View>
+      <StreakOverlay
+        streak={currentStreak}
+        visible={showStreakOverlay}
+        onAnimationComplete={() => setShowStreakOverlay(false)}
+      />
     </ThemedView >
   );
 }

@@ -75,6 +75,8 @@ export default function ActiveQuizScreen() {
     return undefined;
   }, [pausedRunId, getPausedRun]);
 
+  const [activePausedRunId, setActivePausedRunId] = useState<string | undefined>(pausedRunId);
+
   const effectiveQuestionIds = useMemo(() => questionIds || pausedRun?.questionIds, [questionIds, pausedRun]);
   const effectiveShuffle = useMemo(() => shuffle || pausedRun?.shuffle, [shuffle, pausedRun]);
   const effectiveShuffleAnswers = useMemo(() => shuffleAnswers || pausedRun?.shuffleAnswers, [shuffleAnswers, pausedRun]);
@@ -138,7 +140,8 @@ export default function ActiveQuizScreen() {
       return;
     }
 
-    savePausedRun({
+    const newId = savePausedRun({
+      id: activePausedRunId,
       quizId: testId,
       currentQuestionIndex: currentIndex,
       selectedAnswerIds,
@@ -148,20 +151,14 @@ export default function ActiveQuizScreen() {
       questionIds: effectiveQuestionIds,
     });
 
-    // If we are resuming a paused run, we should delete the old one to avoid duplicates if ID changes, 
-    // but here we are just saving a new state. If ID is same, it updates.
-    // Actually savePausedRun generates new ID. We should probably update if exists?
-    // The store implementation of savePausedRun generates a NEW ID every time.
-    // We should probably delete the old one if we are pausing again.
-    if (pausedRunId) {
-      deletePausedRun(pausedRunId);
-    }
+    setActivePausedRunId(newId);
 
     if (settings.vibrationEnabled) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
     safeGoBack();
   }, [
+    activePausedRunId,
     isMiniRun,
     navigation,
     savePausedRun,
@@ -169,10 +166,9 @@ export default function ActiveQuizScreen() {
     currentIndex,
     selectedAnswerIds,
     answers,
-    pausedRunId,
-    deletePausedRun,
     settings.vibrationEnabled,
     effectiveShuffle,
+    effectiveShuffleAnswers,
     effectiveQuestionIds,
     safeGoBack,
   ]);
@@ -205,8 +201,8 @@ export default function ActiveQuizScreen() {
                 isIncomplete: true,
               });
               // If we were in a paused run, delete it as it is now finished
-              if (pausedRunId) {
-                deletePausedRun(pausedRunId);
+              if (activePausedRunId) {
+                deletePausedRun(activePausedRunId);
               }
               navigation.replace("Results", { runId: run.id });
             } else {
@@ -223,8 +219,7 @@ export default function ActiveQuizScreen() {
     addRun,
     testId,
     quiz,
-    pausedRunId,
-    pausedRunId,
+    activePausedRunId,
     deletePausedRun,
     navigation,
     safeGoBack,
@@ -248,11 +243,8 @@ export default function ActiveQuizScreen() {
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextAppState) => {
       if (nextAppState.match(/inactive|background/) && !isMiniRun && !isSubmitted) {
-        // Auto-pause
-        // We can't use navigation here reliably, but we can save state.
-        // However, we don't want to exit the screen.
-        // Just save the state so if app is killed, it's there.
-        savePausedRun({
+        const newId = savePausedRun({
+          id: activePausedRunId,
           quizId: testId,
           currentQuestionIndex: currentIndex,
           selectedAnswerIds,
@@ -261,15 +253,7 @@ export default function ActiveQuizScreen() {
           shuffleAnswers: effectiveShuffleAnswers ?? false,
           questionIds: effectiveQuestionIds,
         });
-        // If we had a previous paused run, we should delete it to avoid clutter?
-        // Or maybe savePausedRun should accept an ID to update?
-        // For now, let's just save. If user comes back to same screen, nothing changes.
-        // If app is killed, they can resume from this saved state.
-        // Note: This might create multiple paused runs if user backgrounds multiple times.
-        // Ideally store should handle upsert.
-        if (pausedRunId) {
-          deletePausedRun(pausedRunId);
-        }
+        setActivePausedRunId(newId);
       }
     });
 
@@ -278,14 +262,13 @@ export default function ActiveQuizScreen() {
     };
   }, [
     isMiniRun,
+    activePausedRunId,
     isSubmitted,
     savePausedRun,
     testId,
     currentIndex,
     selectedAnswerIds,
     answers,
-    pausedRunId,
-    deletePausedRun,
     effectiveShuffle,
     effectiveShuffleAnswers,
     effectiveQuestionIds,
@@ -318,6 +301,45 @@ export default function ActiveQuizScreen() {
     [isSubmitted]
   );
 
+  const finishQuiz = useCallback(
+    (finalAnswers: QuizRunAnswer[]) => {
+      const correctCount = finalAnswers.filter((a) => a.isCorrect).length;
+      const wrongCount = finalAnswers.length - correctCount;
+      const scorePercentage = (correctCount / finalAnswers.length) * 100;
+
+      if (!isMiniRun) {
+        const run = addRun({
+          quizId: testId,
+          quizTitle: quiz?.title ?? "",
+          scorePercentage,
+          totalQuestions: finalAnswers.length,
+          correctCount,
+          wrongCount,
+          answers: finalAnswers,
+        });
+        updateStreak();
+        if (activePausedRunId) {
+          deletePausedRun(activePausedRunId);
+        }
+        navigation.replace("Results", { runId: run.id });
+      } else {
+        const tempRunId = `temp_${Date.now()}`;
+        navigation.replace("Results", { runId: tempRunId, isMiniRun: true });
+      }
+    },
+    [isMiniRun, testId, quiz?.title, addRun, updateStreak, activePausedRunId, deletePausedRun, navigation]
+  );
+
+  const handleNext = useCallback(() => {
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex((prev) => prev + 1);
+      setSelectedAnswerIds([]);
+      setIsSubmitted(false);
+    } else {
+      finishQuiz(answers);
+    }
+  }, [currentIndex, questions.length, answers, finishQuiz]);
+
   const handleSubmit = useCallback(() => {
     if (selectedAnswerIds.length === 0 || !currentQuestion) return;
 
@@ -349,38 +371,54 @@ export default function ActiveQuizScreen() {
 
     setAnswers((prev) => [...prev, newAnswer]);
 
-    setTimeout(() => {
-      if (currentIndex < questions.length - 1) {
-        setCurrentIndex((prev) => prev + 1);
-        setSelectedAnswerIds([]);
-        setIsSubmitted(false);
-      } else {
-        const updatedAnswers = [...answers, newAnswer];
-        const correctCount = updatedAnswers.filter((a) => a.isCorrect).length;
-        const wrongCount = updatedAnswers.length - correctCount;
-        const scorePercentage = (correctCount / updatedAnswers.length) * 100;
+    setAnswers((prev) => [...prev, newAnswer]);
 
-        if (!isMiniRun) {
-          const run = addRun({
-            quizId: testId,
-            quizTitle: quiz?.title ?? "",
-            scorePercentage,
-            totalQuestions: updatedAnswers.length,
-            correctCount,
-            wrongCount,
-            answers: updatedAnswers,
-          });
-          updateStreak();
-          if (pausedRunId) {
-            deletePausedRun(pausedRunId);
-          }
-          navigation.replace("Results", { runId: run.id });
+    if (!settings.manualConfirmation) {
+      const delay = settings.autoAdvanceDelay * 1000;
+      setTimeout(() => {
+        // We need to call handleNext here, but handleNext depends on 'answers' which is state.
+        // The closure might capture old answers if not careful, but 'answers' dependency in handleNext should cover it if we use a ref or simplified logic.
+        // Actually, 'answers' state update is async. 
+        // We should pass the updated answers to handleNext or logic there.
+        // To be safe, let's replicate the navigation logic or use a ref. 
+        // Or simpler: just set a timeout to trigger a state change that useEffect watches? No.
+
+        // Re-implementing next logic simply here to avoid closure staleness issues with the just-added answer:
+        if (currentIndex < questions.length - 1) {
+          setCurrentIndex((prev) => prev + 1);
+          setSelectedAnswerIds([]);
+          setIsSubmitted(false);
         } else {
-          const tempRunId = `temp_${Date.now()}`;
-          navigation.replace("Results", { runId: tempRunId, isMiniRun: true });
+          // This matches the logic we put in handleNext, but using the *updated* lists
+          // updatedAnswers is available here in scope.
+          const correctCount = updatedAnswers.filter((a) => a.isCorrect).length;
+          const wrongCount = updatedAnswers.length - correctCount;
+          const scorePercentage = (correctCount / updatedAnswers.length) * 100;
+
+          if (!isMiniRun) {
+            const run = addRun({
+              quizId: testId,
+              quizTitle: quiz?.title ?? "",
+              scorePercentage,
+              totalQuestions: updatedAnswers.length,
+              correctCount,
+              wrongCount,
+              answers: updatedAnswers,
+            });
+            updateStreak();
+            if (activePausedRunId) {
+              deletePausedRun(activePausedRunId);
+            }
+            navigation.replace("Results", { runId: run.id });
+          } else {
+            const tempRunId = `temp_${Date.now()}`;
+            navigation.replace("Results", { runId: tempRunId, isMiniRun: true });
+          }
         }
-      }
-    }, 1500);
+      }, delay);
+    }
+    // If manual confirmation is on, we just stay in isSubmitted state. 
+    // The user will see the feedback and a "Next" button.
   }, [
     selectedAnswerIds,
     currentQuestion,
@@ -393,9 +431,11 @@ export default function ActiveQuizScreen() {
     addRun,
     updateStreak,
     navigation,
-    pausedRunId,
+    activePausedRunId,
     deletePausedRun,
     settings.vibrationEnabled,
+    settings.manualConfirmation,
+    settings.autoAdvanceDelay,
   ]);
 
   if (!quiz || questions.length === 0) {
@@ -510,6 +550,13 @@ export default function ActiveQuizScreen() {
           <Animated.View entering={FadeIn.duration(200)} style={styles.submitContainer}>
             <Button onPress={handleSubmit} style={styles.submitButton}>
               Submit Answer
+            </Button>
+          </Animated.View>
+        )}
+        {isSubmitted && settings.manualConfirmation && (
+          <Animated.View entering={FadeIn.duration(200)} style={styles.submitContainer}>
+            <Button onPress={handleNext} style={styles.submitButton}>
+              {currentIndex < questions.length - 1 ? "Next Question" : "Finish Quiz"}
             </Button>
           </Animated.View>
         )}

@@ -73,6 +73,46 @@ export default function SettingsScreen() {
     [updateSettings]
   );
 
+  const handleManualConfirmationToggle = useCallback(
+    (value: boolean) => {
+      updateSettings({ manualConfirmation: value });
+    },
+    [updateSettings]
+  );
+
+  const handleDelayChange = useCallback(
+    (text: string) => {
+      // Allow empty string for clearing input, but don't save it
+      if (text === "") {
+        updateSettings({ autoAdvanceDelay: 0 }); // Or handle differently if 0 is invalid logic
+        return;
+      }
+
+      // Replace comma with dot for decimals
+      const normalizedText = text.replace(",", ".");
+      const value = parseFloat(normalizedText);
+
+      if (!isNaN(value)) {
+        // We will validate bounds on blur or just clamp it when used?
+        // Better to update it, but maybe clamp in UI or on save?
+        // Let's just update for now, maybe clamp logic could be here:
+        // But typing "1.5" entails typing "1." first which might be invalid if strict.
+        updateSettings({ autoAdvanceDelay: value });
+      }
+    },
+    [updateSettings]
+  );
+
+  const handleDelayBlur = useCallback(() => {
+    let value = settings.autoAdvanceDelay;
+    if (value < 0.25) value = 0.25;
+    if (value > 10) value = 10;
+
+    if (value !== settings.autoAdvanceDelay) {
+      updateSettings({ autoAdvanceDelay: value });
+    }
+  }, [settings.autoAdvanceDelay, updateSettings]);
+
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
@@ -174,6 +214,48 @@ export default function SettingsScreen() {
                 </ThemedText>
               </View>
             </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <ThemedText type="small" style={[styles.sectionTitle, { color: theme.textSecondary }]}>
+            QUIZ EXPERIENCE
+          </ThemedText>
+          <View style={[styles.card, { backgroundColor: theme.backgroundDefault }]}>
+            <SettingsRow
+              label="Confirm answers manually"
+              description="Show 'Next' button after answering"
+              rightElement={
+                <ToggleSwitch
+                  value={settings.manualConfirmation}
+                  onValueChange={handleManualConfirmationToggle}
+                />
+              }
+            />
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            <SettingsRow
+              label="Auto-advance Delay"
+              description="Seconds to wait before next question"
+              rightElement={
+                <TextInput
+                  value={settings.autoAdvanceDelay.toString()}
+                  onChangeText={handleDelayChange}
+                  onBlur={handleDelayBlur}
+                  keyboardType="numeric"
+                  editable={!settings.manualConfirmation}
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: theme.backgroundSecondary,
+                      color: settings.manualConfirmation ? theme.textSecondary : theme.text,
+                      width: 80,
+                      textAlign: "center",
+                      opacity: settings.manualConfirmation ? 0.5 : 1,
+                    },
+                  ]}
+                />
+              }
+            />
           </View>
         </View>
 

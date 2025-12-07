@@ -63,6 +63,8 @@ export interface Settings {
   avatarPreset: number;
   profileImage: string | null;
   vibrationEnabled: boolean;
+  autoAdvanceDelay: number;
+  manualConfirmation: boolean;
 }
 
 export interface StreakData {
@@ -93,7 +95,7 @@ interface StoreContextValue extends StoreState {
   addRun: (run: Omit<QuizRun, "id" | "timestamp" | "diamondsEarned">) => QuizRun;
   getRun: (id: string) => QuizRun | undefined;
   getRunsByQuiz: (quizId: string) => QuizRun[];
-  savePausedRun: (run: Omit<PausedRun, "id" | "timestamp">) => void;
+  savePausedRun: (run: Omit<PausedRun, "id" | "timestamp"> & { id?: string }) => string;
   deletePausedRun: (id: string) => void;
   getPausedRun: (id: string) => PausedRun | undefined;
   updateSettings: (updates: Partial<Settings>) => void;
@@ -113,6 +115,8 @@ const defaultSettings: Settings = {
   avatarPreset: 0,
   profileImage: null,
   vibrationEnabled: true,
+  autoAdvanceDelay: 1.5,
+  manualConfirmation: false,
 };
 
 const defaultStreak: StreakData = {
@@ -424,13 +428,27 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return runs.filter((r) => r.quizId === quizId);
   }, [runs]);
 
-  const savePausedRun = useCallback((run: Omit<PausedRun, "id" | "timestamp">) => {
-    const newPausedRun: PausedRun = {
-      ...run,
-      id: generateId(),
-      timestamp: new Date(),
-    };
-    setPausedRuns((prev) => [newPausedRun, ...prev]);
+  const savePausedRun = useCallback((run: Omit<PausedRun, "id" | "timestamp"> & { id?: string }) => {
+    const existingId = run.id;
+    const newId = existingId || generateId();
+
+    setPausedRuns((prev) => {
+      const existingIndex = prev.findIndex((p) => p.id === newId);
+      const newPausedRun: PausedRun = {
+        ...run,
+        id: newId,
+        timestamp: new Date(),
+      };
+
+      if (existingIndex >= 0) {
+        const newRuns = [...prev];
+        newRuns[existingIndex] = newPausedRun;
+        return newRuns;
+      }
+      return [newPausedRun, ...prev];
+    });
+
+    return newId;
   }, []);
 
   const deletePausedRun = useCallback((id: string) => {

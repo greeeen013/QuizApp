@@ -68,6 +68,7 @@ export default function ReviewMistakesScreen() {
     navigation.navigate("ActiveQuiz", {
       testId: run.quizId,
       shuffle: false,
+      shuffleAnswers: false,
       questionIds: mistakes.map((m) => m.questionId),
     });
   }, [run, mistakes, navigation]);
@@ -110,30 +111,31 @@ export default function ReviewMistakesScreen() {
             {index + 1}
           </ThemedText>
         </View>
-        {item.questionImages && item.questionImages.length > 0 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.imagesContainer}
-          >
-            {item.questionImages.map((img, imgIndex) => (
-              <Image
-                key={imgIndex}
-                source={{
-                  uri: img.startsWith("http")
-                    ? img
-                    : `data:image/png;base64,${img}`,
-                }}
-                style={styles.questionImage}
-                resizeMode="contain"
-              />
-            ))}
-          </ScrollView>
-        )}
         <ThemedText type="h4" style={styles.questionText}>
           {item.questionText}
         </ThemedText>
       </View>
+
+      {item.questionImages && item.questionImages.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.imagesContainer}
+        >
+          {item.questionImages.map((img, imgIndex) => (
+            <Image
+              key={imgIndex}
+              source={{
+                uri: img.startsWith("http")
+                  ? img
+                  : `data:image/png;base64,${img}`,
+              }}
+              style={styles.questionImage}
+              resizeMode="contain"
+            />
+          ))}
+        </ScrollView>
+      )}
 
       <View style={styles.answersSection}>
         <View style={styles.answerRow}>
